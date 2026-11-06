@@ -11,8 +11,9 @@ on:
 
 jobs:
   build:
-    # macos-14 = Apple Silicon (arm64). Para Macs Intel usa macos-13.
-    runs-on: macos-14
+    # macos-13 = Intel (x86_64), el runner de macOS disponible por defecto. La .app corre en
+    # Macs Apple Silicon vía Rosetta. (macos-14/arm64 no está habilitado en esta cuenta/repo.)
+    runs-on: macos-13
     env:
       # 'true' solo si cargaste los secrets de firma (ver abajo). Evita exponer el secreto en 'if'.
       HAS_SIGNING: ${{ secrets.MAC_DEVELOPER_ID != '' }}
