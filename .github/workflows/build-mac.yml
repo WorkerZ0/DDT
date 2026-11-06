@@ -1,0 +1,69 @@
+name: Build macOS (DDT Monitor visor admin)
+
+# Compila el .app en un Mac de GitHub. Dispáralo desde la web (Actions -> Run workflow)
+# o con cada push. El resultado queda como "artifact" para descargar en Windows.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/build-mac.yml"
+
+jobs:
+  build:
+    # macos-14 = Apple Silicon (arm64). Para Macs Intel usa macos-13.
+    runs-on: macos-14
+    env:
+      # 'true' solo si cargaste los secrets de firma (ver abajo). Evita exponer el secreto en 'if'.
+      HAS_SIGNING: ${{ secrets.MAC_DEVELOPER_ID != '' }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # --- Firma + notarización SOLO si cargaste los secrets del repo ---
+      # Settings -> Secrets and variables -> Actions:
+      #   MAC_CERT_P12_BASE64   certificado "Developer ID Application" (.p12) en base64
+      #   MAC_CERT_PASSWORD     clave del .p12
+      #   MAC_DEVELOPER_ID      "Developer ID Application: NOMBRE (TEAMID)"
+      #   MAC_NOTARY_APPLE_ID   Apple ID
+      #   MAC_NOTARY_TEAM_ID    TEAMID
+      #   MAC_NOTARY_PASSWORD   app-specific password
+      - name: Preparar firma y notarización
+        if: env.HAS_SIGNING == 'true'
+        env:
+          MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          MAC_DEVELOPER_ID: ${{ secrets.MAC_DEVELOPER_ID }}
+          MAC_NOTARY_APPLE_ID: ${{ secrets.MAC_NOTARY_APPLE_ID }}
+          MAC_NOTARY_TEAM_ID: ${{ secrets.MAC_NOTARY_TEAM_ID }}
+          MAC_NOTARY_PASSWORD: ${{ secrets.MAC_NOTARY_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/ddt.keychain-db"
+          security create-keychain -p actions "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p actions "$KEYCHAIN"
+          echo "$MAC_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$MAC_CERT_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions "$KEYCHAIN"
+          # El perfil de notarización va al llavero por defecto: build-mac.sh lo lee sin --keychain
+          xcrun notarytool store-credentials "ddt-notary" \
+            --apple-id "$MAC_NOTARY_APPLE_ID" --team-id "$MAC_NOTARY_TEAM_ID" \
+            --password "$MAC_NOTARY_PASSWORD"
+          echo "DEVELOPER_ID=$MAC_DEVELOPER_ID" >> "$GITHUB_ENV"
+          echo "NOTARY_PROFILE=ddt-notary" >> "$GITHUB_ENV"
+
+      - name: Construir
+        run: bash mac/build-mac.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DDT-Monitor-mac
+          path: desktop/dist/DDT Monitor.zip
+          if-no-files-found: error

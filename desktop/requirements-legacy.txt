@@ -1,0 +1,7 @@
+# Runtime minimo para Windows 7 / 8 / 32 bits (Python 3.8.10 win32, ultima version con soporte Win7).
+# Sin video H.264 (DXGI no existe en Win7): miniaturas y en vivo por JPEG.
+customtkinter==5.2.2
+mss==9.0.2
+Pillow==10.4.0
+websockets==13.1
+pystray==0.19.5

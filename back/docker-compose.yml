@@ -1,0 +1,38 @@
+# `name` explícito para no chocar con otros stacks del server.
+name: ddt
+
+services:
+  ddt-api:
+    # Imagen construida en la máquina del desarrollador y enviada con docker save | docker load
+    image: ddt-api:local
+    build: .
+    container_name: ddt-api
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ddt_data:/data
+    networks: [ddt-net]
+
+  ddt-caddy:
+    image: caddy:2.8.4-alpine
+    container_name: ddt-caddy
+    restart: unless-stopped
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+    ports:
+      - "${HTTPS_PORT:-9443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./updates:/srv/updates:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [ddt-api]
+    networks: [ddt-net]
+
+volumes:
+  ddt_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  ddt-net:

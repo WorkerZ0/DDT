@@ -1,0 +1,22 @@
+# Sin dominio: Caddy firma con su CA interna. El cliente desktop confía solo en esa CA
+# (root.crt exportado del volumen caddy_data), así el tráfico va cifrado (wss/https).
+{
+	admin off
+	skip_install_trust
+	default_sni {$PUBLIC_HOST}
+}
+
+https://{$PUBLIC_HOST} {
+	tls internal
+
+	# Actualizaciones del cliente: latest.json (firmado) + instalador. Se publican en /opt/ddt/updates
+	handle_path /updates/* {
+		root * /srv/updates
+		header latest.json* Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		reverse_proxy ddt-api:8000
+	}
+}

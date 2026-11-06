@@ -1,0 +1,6 @@
+customtkinter==5.2.2
+mss==9.0.2
+Pillow==11.0.0
+websockets==14.1
+# El admin decodifica el video H.264 que mandan las PCs Windows (decoder por software)
+av==14.0.1

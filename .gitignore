@@ -1,0 +1,23 @@
+.env
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+*.pyc
+.venv/
+.venv-mac/
+build/
+dist/
+*.build/
+*.dist/
+installer/Output/
+**/installer/Output/
+*.exe
+back/updates/
+
+# Credenciales / datos sensibles: NUNCA versionar
+*.pdf
+Usuarios_Tiendas_DDT.pdf
+*.p12
+*.key
+*.pem
