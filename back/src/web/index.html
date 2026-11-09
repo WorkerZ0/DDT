@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DDT Monitor — Administrador</title>
+<style>
+  :root{
+    --bg:#0f141b; --surface:#161d26; --surface2:#1f2835; --border:#2a3545;
+    --text:#e7edf5; --muted:#8a98a9; --accent:#2563eb; --accent2:#3b82f6;
+    --online:#22c55e; --live:#38bdf8; --warn:#f59e0b; --offline:#64748b; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);font:14px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  button{font:inherit;cursor:pointer}
+  .hidden{display:none!important}
+
+  /* Login */
+  #login{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:30px 34px;width:100%;max-width:360px}
+  .card h1{font-size:22px;margin:8px 0 2px;text-align:center}
+  .card p{color:var(--muted);text-align:center;margin:0 0 18px}
+  .logo{width:54px;height:40px;margin:0 auto 6px;display:block}
+  input{width:100%;padding:11px 12px;margin-bottom:10px;background:var(--surface2);border:1px solid var(--border);
+        border-radius:9px;color:var(--text);outline:none}
+  input:focus{border-color:var(--accent2)}
+  .btn{width:100%;padding:11px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-weight:600}
+  .btn:hover{background:var(--accent2)}
+  .btn:disabled{opacity:.6;cursor:default}
+  .err{color:var(--danger);text-align:center;min-height:18px;margin:6px 0 2px;font-size:13px}
+
+  /* App */
+  header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+  header .title{font-weight:700}
+  header .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--offline);display:inline-block}
+  .ghost{background:transparent;border:1px solid var(--border);color:var(--text);padding:7px 12px;border-radius:8px}
+  .ghost:hover{background:var(--surface2)}
+
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:14px}
+  .tile{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;transition:border-color .15s}
+  .tile:hover{border-color:var(--accent2)}
+  .tile.off{opacity:.55;cursor:default}
+  .shot{aspect-ratio:16/9;background:#0b0f15 center/contain no-repeat;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px}
+  .shot img{width:100%;height:100%;object-fit:contain;display:block}
+  .meta{padding:8px 10px;display:flex;align-items:center;gap:8px}
+  .meta .name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta .sub{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta .col{min-width:0;flex:1}
+  .badge{font-size:11px;color:var(--muted)}
+
+  /* Visor grande */
+  #viewer{position:fixed;inset:0;background:rgba(5,8,12,.94);display:flex;flex-direction:column;z-index:20}
+  #viewer .bar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border)}
+  #viewer .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:10px;min-height:0}
+  #viewer canvas,#viewer img{max-width:100%;max-height:100%;object-fit:contain;background:#000;border-radius:8px}
+  #viewer .wait{color:var(--muted)}
+
+  #toast{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:40}
+  .toast{background:var(--surface2);border:1px solid var(--warn);border-left:4px solid var(--warn);padding:10px 14px;border-radius:8px;max-width:360px;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form class="card" id="loginForm">
+    <svg class="logo" viewBox="0 0 64 64" fill="none"><rect x="4" y="8" width="56" height="38" rx="7" fill="#1f2835" stroke="#2563eb" stroke-width="4"/><rect x="28" y="46" width="8" height="8" fill="#2563eb"/><rect x="18" y="53" width="28" height="6" rx="3" fill="#2563eb"/><circle cx="50" cy="14" r="11" fill="#22c55e" stroke="#0f141b" stroke-width="3"/></svg>
+    <h1>DDT Monitor</h1>
+    <p>Panel de administrador</p>
+    <input id="u" placeholder="Usuario" autocomplete="username" autofocus>
+    <input id="p" type="password" placeholder="Contraseña" autocomplete="current-password">
+    <div class="err" id="loginErr"></div>
+    <button class="btn" id="loginBtn" type="submit">Ingresar</button>
+  </form>
+</div>
+
+<div id="app" class="hidden">
+  <header>
+    <span class="title">DDT Monitor</span>
+    <span class="pill"><span class="dot" id="connDot"></span><span id="connTxt">Conectando…</span></span>
+    <span class="spacer"></span>
+    <span class="pill" id="counts"></span>
+    <button class="ghost" id="logout">Salir</button>
+  </header>
+  <div id="grid"></div>
+</div>
+
+<div id="viewer" class="hidden">
+  <div class="bar">
+    <strong id="vName"></strong>
+    <span class="pill" id="vSub"></span>
+    <span class="spacer"></span>
+    <button class="ghost" id="vUpdate">Actualizar PC</button>
+    <button class="ghost" id="vClose">Cerrar ✕</button>
+  </div>
+  <div class="stage">
+    <div class="wait" id="vWait">Conectando con la pantalla…</div>
+    <canvas id="vCanvas" class="hidden"></canvas>
+    <img id="vImg" class="hidden" alt="">
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const KIND_THUMB=0, KIND_LIVE=1, KIND_VIDEO=2, KIND_VIDEO_KEY=3;
+
+let token=null, ws=null, reconnectT=null;
+const devices = new Map();      // id -> device
+const thumbURL = new Map();     // id -> objectURL (para revocar)
+let watching = null;
+let player = null;
+
+/* ---------- Login ---------- */
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn=$("#loginBtn"); const err=$("#loginErr");
+  err.textContent=""; btn.disabled=true; btn.textContent="Ingresando…";
+  try{
+    const r = await fetch("/api/auth/login", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({username:$("#u").value.trim(), password:$("#p").value})
+    });
+    if(!r.ok){
+      const j = await r.json().catch(()=>({}));
+      throw new Error(j.detail || (r.status===401?"Usuario o contraseña incorrectos":"Error "+r.status));
+    }
+    const data = await r.json();
+    if(data.user.role!=="admin") throw new Error("Esta cuenta no es de administrador");
+    token = data.token;
+    $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+    connect();
+  }catch(ex){ err.textContent = ex.message || "Sin conexión con el servidor"; }
+  finally{ btn.disabled=false; btn.textContent="Ingresar"; }
+});
+
+$("#logout").addEventListener("click", ()=>{
+  try{ ws && ws.close(); }catch(e){}
+  token=null; location.reload();
+});
+
+/* ---------- WebSocket visor ---------- */
+function wsUrl(){ return (location.protocol==="https:"?"wss":"ws")+"://"+location.host+"/ws/viewer"; }
+
+function setConn(state, txt){
+  const c={online:"var(--online)",connecting:"var(--warn)",offline:"var(--offline)",error:"var(--danger)"};
+  $("#connDot").style.background = c[state]||"var(--offline)";
+  $("#connTxt").textContent = txt;
+}
+
+function connect(){
+  clearTimeout(reconnectT);
+  setConn("connecting","Conectando…");
+  ws = new WebSocket(wsUrl());
+  ws.binaryType = "arraybuffer";
+  ws.onopen = ()=> ws.send(JSON.stringify({type:"auth", token}));
+  ws.onmessage = onMessage;
+  ws.onclose = ev=>{
+    if(ev.code===4401 || ev.code===4403){  // sesión inválida / rol
+      setConn("error","Sesión inválida"); token=null; return location.reload();
+    }
+    setConn("offline","Sin conexión, reintentando…");
+    reconnectT = setTimeout(connect, 2000);
+  };
+  ws.onerror = ()=>{ try{ws.close();}catch(e){} };
+}
+
+function onMessage(ev){
+  if(typeof ev.data === "string"){ return onText(JSON.parse(ev.data)); }
+  const ab = ev.data;
+  const dv = new DataView(ab);
+  const kind = dv.getUint8(0);
+  const id = dv.getUint32(1, false);
+  const payload = ab.slice(5);
+  if(kind===KIND_THUMB){ setThumb(id, payload); }
+  else if(watching===id){
+    if(kind===KIND_LIVE){ player && player.jpeg(payload); }
+    else if(kind===KIND_VIDEO || kind===KIND_VIDEO_KEY){ player && player.video(kind===KIND_VIDEO_KEY, payload); }
+  }
+}
+
+function onText(m){
+  if(m.type==="ready"){
+    setConn("online","Conectado");
+    sendView();
+  }else if(m.type==="devices"){
+    for(const d of m.devices) devices.set(d.id, {...devices.get(d.id), ...d});
+    // quita las que ya no están
+    const ids=new Set(m.devices.map(d=>d.id));
+    for(const id of [...devices.keys()]) if(!ids.has(id)) devices.delete(id);
+    renderGrid(); sendView();
+    if(watching!=null) refreshViewerHeader();
+  }else if(m.type==="activity"){
+    const d=devices.get(m.device_id); if(d){ d.idle=m.idle; updateTileSub(m.device_id); }
+  }else if(m.type==="alert"){
+    toast(`⚠ ${m.hostname||("PC "+m.device_id)}: cierre forzado detectado`);
+  }
+}
+
+function sendView(){
+  if(!ws || ws.readyState!==1) return;
+  ws.send(JSON.stringify({type:"view", thumb_width:480, device_ids:[...devices.keys()]}));
+}
+
+/* ---------- Grilla ---------- */
+function statusColor(d){ return !d.online?"var(--offline)":(d.live?"var(--live)":"var(--online)"); }
+function statusText(d){
+  if(!d.online) return "Sin conexión";
+  const idle = (d.idle==null)?"" : (d.idle>=60? ` · inactivo ${Math.round(d.idle/60)}m` : "");
+  return (d.live?"En vivo":"En línea")+idle;
+}
+
+function renderGrid(){
+  const grid=$("#grid");
+  const list=[...devices.values()].sort((a,b)=>
+    (b.online-a.online) || (a.display_name||a.username).localeCompare(b.display_name||b.username));
+  grid.innerHTML="";
+  $("#counts").textContent = `${list.filter(d=>d.online).length} en línea · ${list.length} total`;
+  for(const d of list){
+    const el=document.createElement("div");
+    el.className="tile"+(d.online?"":" off");
+    el.dataset.id=d.id;
+    el.innerHTML=`
+      <div class="shot"><span class="ph">${d.online?"sin imagen aún":"desconectada"}</span></div>
+      <div class="meta">
+        <span class="dot" style="background:${statusColor(d)}"></span>
+        <span class="col">
+          <div class="name">${esc(d.display_name||d.username)}</div>
+          <div class="sub">${esc(d.hostname||"")} · <span class="st">${statusText(d)}</span></div>
+        </span>
+        ${d.version?`<span class="badge">v${esc(d.version)}</span>`:""}
+      </div>`;
+    if(d.online) el.addEventListener("click", ()=>openViewer(d.id));
+    grid.appendChild(el);
+    // re-adjunta miniatura si ya la teníamos
+    const url=thumbURL.get(d.id); if(url) setShot(el, url);
+  }
+}
+function updateTileSub(id){
+  const el=document.querySelector(`.tile[data-id="${id}"] .st`);
+  const d=devices.get(id); if(el&&d) el.textContent=statusText(d);
+}
+function setThumb(id, payload){
+  const blob=new Blob([payload],{type:"image/jpeg"});
+  const url=URL.createObjectURL(blob);
+  const old=thumbURL.get(id); thumbURL.set(id,url); if(old) URL.revokeObjectURL(old);
+  const el=document.querySelector(`.tile[data-id="${id}"]`); if(el) setShot(el,url);
+}
+function setShot(tile,url){
+  const shot=tile.querySelector(".shot");
+  let img=shot.querySelector("img");
+  if(!img){ img=document.createElement("img"); shot.innerHTML=""; shot.appendChild(img); }
+  img.src=url;
+}
+
+/* ---------- Visor grande (en vivo) ---------- */
+function openViewer(id){
+  watching=id;
+  if(ws&&ws.readyState===1) ws.send(JSON.stringify({type:"watch", device_id:id}));
+  player = new LivePlayer($("#vCanvas"), $("#vImg"), $("#vWait"));
+  $("#viewer").classList.remove("hidden");
+  refreshViewerHeader();
+}
+function refreshViewerHeader(){
+  const d=devices.get(watching); if(!d){ closeViewer(); return; }
+  $("#vName").textContent = d.display_name||d.username;
+  $("#vSub").textContent = `${d.hostname||""} · ${statusText(d)}${d.video?" · H.264":""}`;
+  if(!d.online){ toast(`${d.display_name||d.username} se desconectó`); closeViewer(); }
+}
+function closeViewer(){
+  if(watching!=null && ws&&ws.readyState===1) ws.send(JSON.stringify({type:"unwatch"}));
+  watching=null;
+  if(player){ player.reset(); player=null; }
+  $("#viewer").classList.add("hidden");
+  $("#vCanvas").classList.add("hidden"); $("#vImg").classList.add("hidden"); $("#vWait").classList.remove("hidden");
+}
+$("#vClose").addEventListener("click", closeViewer);
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && watching!=null) closeViewer(); });
+$("#vUpdate").addEventListener("click", ()=>{
+  if(watching!=null && ws&&ws.readyState===1){
+    ws.send(JSON.stringify({type:"update_now", device_ids:[watching]}));
+    toast("Actualización solicitada");
+  }
+});
+
+/* ---------- Decodificación H.264 (WebCodecs) + JPEG ---------- */
+class LivePlayer{
+  constructor(canvas,img,wait){ this.canvas=canvas; this.img=img; this.wait=wait; this.ctx=canvas.getContext("2d");
+    this.decoder=null; this.ts=0; this.shown=false; }
+  show(el){ this.wait.classList.add("hidden");
+    for(const x of [this.canvas,this.img]) x.classList.toggle("hidden", x!==el); }
+  jpeg(payload){
+    const url=URL.createObjectURL(new Blob([payload],{type:"image/jpeg"}));
+    const prev=this.img.dataset.url; this.img.dataset.url=url;
+    this.img.onload=()=>{ if(prev) URL.revokeObjectURL(prev); };
+    this.img.src=url; this.show(this.img);
+  }
+  video(isKey,payload){
+    if(!("VideoDecoder" in window)){ this.wait.textContent="Este navegador no soporta video en vivo (usa Chrome o Safari 16.4+)."; return; }
+    const bytes=new Uint8Array(payload);
+    if(!this.decoder){
+      if(!isKey) return;                       // sin keyframe no se puede arrancar
+      const codec=avcCodec(bytes);
+      this.decoder=new VideoDecoder({ output:f=>this.draw(f), error:e=>{ console.warn("decoder",e); this.reset(); } });
+      try{ this.decoder.configure({codec, optimizeForLatency:true}); }
+      catch(e){ console.warn("configure",codec,e); this.decoder=null; return; }
+    }
+    let chunk;
+    try{ chunk=new EncodedVideoChunk({type:isKey?"key":"delta", timestamp:this.ts, data:bytes}); }
+    catch(e){ return; }
+    this.ts+=33333;
+    try{ this.decoder.decode(chunk); }catch(e){ console.warn("decode",e); this.reset(); }
+  }
+  draw(frame){
+    if(this.canvas.width!==frame.displayWidth){ this.canvas.width=frame.displayWidth; this.canvas.height=frame.displayHeight; }
+    this.ctx.drawImage(frame,0,0,this.canvas.width,this.canvas.height);
+    frame.close(); this.show(this.canvas);
+  }
+  reset(){ if(this.decoder){ try{this.decoder.close();}catch(e){} } this.decoder=null; this.ts=0; }
+}
+
+function avcCodec(b){
+  for(let i=0;i+4<b.length;i++){
+    const sc = (b[i]===0&&b[i+1]===0&&b[i+2]===1) ? 3 : (b[i]===0&&b[i+1]===0&&b[i+2]===0&&b[i+3]===1 ? 4 : 0);
+    if(sc){ const o=i+sc; if((b[o]&0x1f)===7 && o+3<b.length) return "avc1."+hx(b[o+1])+hx(b[o+2])+hx(b[o+3]); }
+  }
+  return "avc1.42E01E";
+}
+const hx = n => n.toString(16).padStart(2,"0").toUpperCase();
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(text){
+  const t=document.createElement("div"); t.className="toast"; t.textContent=text;
+  $("#toast").appendChild(t); setTimeout(()=>t.remove(), 6000);
+}
+</script>
+</body>
+</html>
